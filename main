@@ -1,0 +1,96 @@
+#pragma config FOSC = HS        // Oscillator Selection bits (HS oscillator)
+#pragma config WDTE = OFF       // Watchdog Timer Enable bit (WDT disabled)
+#pragma config PWRTE = OFF      // Power-up Timer Enable bit (PWRT disabled)
+#pragma config BOREN = OFF      // Brown-out Reset Enable bit (BOR disabled)
+#pragma config LVP = OFF        // Low-Voltage (Single-Supply) In-Circuit Serial Programming Enable bit (RB3 is digital I/O, HV on MCLR must be used for programming)
+#pragma config CPD = OFF        // Data EEPROM Memory Code Protection bit (Data EEPROM code protection off)
+#pragma config WRT = OFF        // Flash Program Memory Write Enable bits (Write protection off; all program memory may be written to by EECON control)
+#pragma config CP = OFF         // Flash Program Memory Code Protection bit (Code protection off)
+
+// #pragma config statements should precede project file includes.
+// Use project enums instead of #define for ON and OFF.
+#define _XTAL_FREQ 8000000
+#include <xc.h>
+
+
+void adcGo();
+void adcInit();
+unsigned int adcRead();
+unsigned int lightLevel(unsigned int);                                                                                                                                                                                                                      
+
+void main(void) {
+    
+    unsigned int voltageReading, lightReading;
+    
+    TRISA = 1;      //A is input 
+    TRISB = 0;      //B, D are output
+    TRISD = 0;
+    
+    adcInit();      //Initialise the ADC with the desired settings.
+    
+    while(1)
+    {
+        
+        voltageReading = adcRead();     //Get the value read by the ADC
+         __delay_ms(100);
+        lightReading = lightLevel(voltageReading);
+        
+       if (lightReading > 0 && lightReading <= 341)
+        {
+           PORTBbits.RB0 = 0;
+           PORTBbits.RB1 = 0;
+           PORTBbits.RB2 = 0;
+
+        }
+ 
+        
+       else if (lightReading > 341 && lightReading <= 800)
+        {
+           PORTBbits.RB0 = 1;
+           PORTBbits.RB1 = 1;
+           PORTBbits.RB2 = 0;           
+        }
+      
+       else if (lightReading > 800) 
+    
+          
+        {
+           PORTBbits.RB0 = 1;
+           PORTBbits.RB1 = 1;
+           PORTBbits.RB2 = 1;     
+        }
+         
+        PORTD = 1;               //Lighting an indicator LED in RD0 to indicate that everything is working fine
+    }
+    
+    return;
+}
+
+
+void adcGo(void){
+    ADCON0bits.GO = 1;
+}
+void adcInit(void){
+    
+    ADCON0 = 0x81;          //= 10 000 0 0 1        ClockSetting Channel Go/Done n/a ADCisON
+    ADCON1 = 0x8E;          //= 1 000 1110;         RightJust n/a AN0channelOnlyIsAnalogue
+    
+}
+
+unsigned int adcRead(){
+    
+    unsigned int reading;
+     __delay_ms(1);          //delay to make sure everything is okay
+    
+    adcGo();                //Start ADC
+    while(ADCON0bits.GO_DONE == 1);         //Wait until conversion is done 
+ 
+    reading = (unsigned int)((ADRESH << 8) + ADRESL); //Get the reading the 2 High bits shifted by 8 + the low bits (HHLLLLLLLL)
+    
+    return reading;
+}
+
+unsigned int lightLevel(unsigned int adcReading)
+{
+    return 1024 - adcReading;       //10 bits so 1024 max, get the delta between 1024 and the voltage value that would be the light level 
+}
